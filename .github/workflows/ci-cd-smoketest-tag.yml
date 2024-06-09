@@ -1,0 +1,92 @@
+name: ci-cd-smoketest-tag-workflow
+on: [workflow_dispatch, push]
+jobs:
+  ci-pipeline:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install prerequisites and dependencies
+        uses: ./.github/actions/install
+
+      - name: Check formatting
+        run: npm run prettier
+
+      - name: Check types
+        run: npm run typecheck
+
+      - name: Check linting
+        run: npm run lint
+
+      - name: Execute tests
+        run: npm run test
+
+      - name: Execute build
+        run: npm run build
+    
+
+      - name: Get next Semantic Version
+        id: next-semver
+        uses: ./.github/actions/semver
+      
+      - name: Tag
+        if: github.ref == 'refs/heads/solutions'
+        run: |
+          git tag ${{ steps.next-semver.outputs.semver }} $(git merge-base origin/main origin/solutions)
+          git push origin ${{ steps.next-semver.outputs.semver }}
+
+      - name: Upload dist as artefact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: 'dist/'
+
+  cd-pipeline:
+    needs: [ci-pipeline]
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    outputs:
+      pages-url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Output env url
+        run: echo ${{ env.url }}
+
+  smoke-test:
+    needs: cd-pipeline
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    strategy:
+      matrix:
+        browser: [firefox, chromium]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        
+      - name: Install prerequisites and dependencies
+        uses: ./.github/actions/install
+
+      - name: Install Playwright Browsers
+        run: npx playwright install ${{ matrix.browser }}
+
+      - name: Run Playwright tests
+        run: npx playwright test --project ${{ matrix.browser }}
+        env:
+          PLAYWRIGHT_BASE_DOMAIN: ${{ needs.cd-pipeline.outputs.pages-url }}
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-${{ matrix.browser }}
+          path: playwright-report/
+          retention-days: 1

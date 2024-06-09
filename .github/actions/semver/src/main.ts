@@ -8,8 +8,8 @@ import { getNextSemVer } from './version/Version';
 
 export async function run(): Promise<void> {
   try {
-    // const githubToken = <todo: load the required input>;
-    // const devVersionSuffix = <todo: load the required input>;
+    const githubToken = core.getInput('token');
+    const devVersionSuffix = core.getInput('dev-version-suffix');
 
     const workflowBranch = getBranchOfCurrentWorkflow(github.context);
     const workflowOnDefaultBranch = await isDefaultBranch(
@@ -32,7 +32,7 @@ export async function run(): Promise<void> {
     console.log(`Latest Package File Version: ${packageFileVersion.getVersion()}`);
     console.log(`Next Semantic Version: ${semver}`);
 
-    // <todo: set the required output>
+    core.setOutput('semver', semver);
   } catch (error) {
     if (error instanceof Error) core.setFailed(error.message);
   }
