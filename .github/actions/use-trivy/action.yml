@@ -1,0 +1,16 @@
+name: 'Trivy'
+description: 'Provides and executes trivy'
+
+branding:
+  icon: 'bookmark'
+  color: 'purple'
+
+inputs:
+  trivy-version:
+    description: 'trivy-version'
+    default: 0.52.2
+    required: true
+
+runs:
+  using: node20
+  main: dist/index.js
